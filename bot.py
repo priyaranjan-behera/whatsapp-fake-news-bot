@@ -4,8 +4,11 @@ from twilio.twiml.messaging_response import MessagingResponse
 from pprint import pprint
 import os
 
-app = Flask(__name__)
+from google.cloud import language
+from google.cloud.language import enums
+from google.cloud.language import types
 
+app = Flask(__name__)
 
 @app.route('/bot', methods=['POST'])
 def bot():
@@ -15,7 +18,10 @@ def bot():
     pprint(request.values)
     responded = False
     print("Incoming message: " + incoming_msg)
-    data = getFactSearchData(str(incoming_msg))
+    entities = getKeyWords(incoming_msg)
+    searchstring = ' '.join(entities[0:10])
+    print('Searching: ' + searchstring)
+    data = getFactSearchData(str(searchstring))
     msg.body(data)
 
     '''
@@ -53,18 +59,33 @@ def getFactSearchData(query):
     data = r.json()
     print(r)
     # print(data['claims']) 
-    if len(data['claims']) > 0:
+    if "claims" in data and len(data['claims']) > 0:
         claim = data['claims'][0]['text']
         result = data['claims'][0]['claimReview'][0]['textualRating']
         reference = data['claims'][0]['claimReview'][0]['url']
+        returndata = "Claim: " + claim + '\n'
+        returndata = returndata + "Refer: " + reference + '\n'
         if result == 'False':
-            returndata = '*FAKE NEWS ALERT* - This claim seems to be False. It is claimed that '+ claim +' But this is false. You can view more details at: ' + reference
+            returndata = '*FAKE NEWS ALERT* - There are fake news around for this. \n' + returndata 
         else:
-            returndata = '*Not a Fake News* - The claim is: ' + claim + 'This claim seems to be genuine. You can view more details at: ' + reference    
+            returndata = "There are several genuine articles on this topic. \n" + returndata
         return returndata
     else:
-        returndata = "Could not verify the claim"
+        returndata = "Could not verify the claim. Didn't find any references on this."
         return returndata
+
+def getKeyWords(text):
+    client = language.LanguageServiceClient()
+    # The text to analyze
+    document = types.Document(
+        content=text,
+        type=enums.Document.Type.PLAIN_TEXT)
+    # Detects the sentiment of the text
+    response = client.analyze_entities(document=document)
+    output = []
+    for entity in response.entities:    
+        output.append(entity.name)
+    return output
 
 
 if __name__ == '__main__':
