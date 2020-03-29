@@ -12,6 +12,7 @@ PARAMS = {'query':query, 'key': key}
 r = requests.get(url = URL, params = PARAMS) 
 # extracting data in json format 
 data = r.json()
+print(data)
 # print(data['claims']) 
 if len(data['claims']) > 0:
 	claim = data['claims'][0]['text']
